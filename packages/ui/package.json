@@ -1,0 +1,28 @@
+{
+  "name": "@app/ui",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./components/*": "./src/components/*.tsx",
+    "./theme.css": "./src/theme.css",
+    "./utils": "./src/utils.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "radix-ui": "^1.8.1",
+    "tailwind-merge": "^3.7.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "react": "^19.3.1",
+    "typescript": "^7.0.2"
+  },
+  "peerDependencies": {
+    "react": "^19",
+    "react-dom": "^19"
+  }
+}
