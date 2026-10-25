@@ -51,3 +51,9 @@ def test_commit_fallback():
 
 def test_unknown_route_is_404(client):
     assert client.get("/nope").status_code == 404
+
+
+# Broken on purpose: this PR exists to show that a red check blocks the merge
+# and nothing deploys. Do not merge.
+def test_broken_on_purpose(client):
+    assert client.post("/api/ping").json()["message"] == "pong 👋"
