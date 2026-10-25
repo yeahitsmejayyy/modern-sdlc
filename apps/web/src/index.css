@@ -1,0 +1,5 @@
+@import "tailwindcss";
+@import "@app/ui/theme.css";
+
+/* Tailwind only scans this app by default; also scan the shared components for their classes. */
+@source "../../../packages/ui/src";
