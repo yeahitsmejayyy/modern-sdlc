@@ -13,3 +13,15 @@
 		file_server
 	}
 }
+
+# Staging runs as a second stack on the same server (compose.staging.yaml). Only this
+# Caddy can own ports 80/443, so it fronts the staging domain too and hands every
+# request to staging's own web container over the shared "edge" network.
+# A 502 here means staging isn't deployed (or is down); production is unaffected.
+{$STAGING_DOMAIN} {
+	reverse_proxy staging-web:80 {
+		# Staging's Caddy has this same block. Rewriting Host means it never matches
+		# its own staging site (and forwards to itself); it just serves the app.
+		header_up Host {upstream_hostport}
+	}
+}
