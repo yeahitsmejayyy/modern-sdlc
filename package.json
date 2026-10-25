@@ -4,6 +4,10 @@
   "type": "module",
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
+    "dev": "bun --filter @app/server --filter @app/web dev",
+    "test": "bun --filter '*' test",
+    "typecheck": "bun --filter '*' typecheck",
+    "build": "bun --filter @app/web build",
     "db:up": "docker compose up -d db",
     "db:down": "docker compose down",
     "db:psql": "docker compose exec db psql -U app app"
