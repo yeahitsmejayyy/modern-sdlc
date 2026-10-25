@@ -44,6 +44,12 @@ services:
     environment:
       # Caddy's own default only kicks in when DOMAIN is unset, not empty, so fall back here.
       DOMAIN: ${DOMAIN:-:80}
+      # Same trap: an empty site address breaks the Caddyfile. Locally this is a harmless
+      # plain-HTTP placeholder; production sets the real staging domain.
+      STAGING_DOMAIN: ${STAGING_DOMAIN:-http://staging.localhost}
+    networks:
+      default:
+      edge: # shared with the staging stack's web, so this Caddy can reach it
     volumes:
       - caddy_data:/data # HTTPS certificates live here; keep them across deploys
       - caddy_config:/config
@@ -51,6 +57,10 @@ services:
       server:
         condition: service_healthy
     restart: unless-stopped
+
+networks:
+  edge:
+    name: edge # a fixed name (not prefixed by the project) so the staging project can join it
 
 volumes:
   pgdata:

@@ -63,8 +63,8 @@ else
   echo "WARNING: root has no SSH key, so password login was left ON. Run ssh-copy-id root@<ip>, then re-run."
 fi
 
-# --- App directory ----------------------------------------------------------------
-# The deploy workflow copies compose.yaml and writes .env here.
-install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$APP_DIR"
+# --- App directories --------------------------------------------------------------
+# The deploy workflow copies compose files and writes .env here: one per environment.
+install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$APP_DIR" "$APP_DIR-staging"
 
 echo "Done. Check it with: ssh -i ~/.ssh/modern_sdlc_deploy $DEPLOY_USER@<ip> docker ps"

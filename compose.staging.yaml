@@ -1,0 +1,22 @@
+# Staging: a second copy of the stack on the same server, run as its own Compose
+# project next to production:
+#   docker compose -p modern-sdlc-staging -f compose.yaml -f compose.staging.yaml up -d
+# It gets its own containers, network and database volume. Only the ports and the
+# front door differ, because production's Caddy already owns 80/443.
+services:
+  db:
+    ports: !reset [] # production already holds 127.0.0.1:5432
+
+  web:
+    ports: !reset [] # not public: production's Caddy forwards sdlc-staging here
+    environment:
+      DOMAIN: ":80" # plain HTTP; production's Caddy handles HTTPS
+    networks:
+      default:
+      edge:
+        aliases: [staging-web] # the name production's Caddyfile proxies to
+
+networks:
+  edge:
+    name: edge
+    external: true # created and owned by the production project
