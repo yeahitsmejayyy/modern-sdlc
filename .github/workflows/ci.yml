@@ -55,7 +55,8 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10
+      # setup-uv publishes exact versions only (no floating v10 tag).
+      - uses: astral-sh/setup-uv@v10.3.2
       - run: uv sync --frozen
       - name: Test
         run: uv run pytest
