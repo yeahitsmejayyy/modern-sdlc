@@ -38,7 +38,7 @@ bun run db:up   # start Postgres in a container
 bun run dev     # start the server (:8000) and the web app (:5173)
 ```
 
-Open http://localhost:5173 and click **Ping the server**.
+Open http://localhost:5173 and click **Say hello to the server**.
 
 Other scripts: `bun run test`, `bun run typecheck`, `bun run build`,
 `bun run db:psql`, and `bun run db:down`.

@@ -59,7 +59,7 @@ function PingButton({ onPinged }: { onPinged: () => void }) {
   return (
     <div className="flex flex-col gap-3">
       <Button onClick={ping} disabled={loading}>
-        {loading ? 'Pinging…' : 'Ping the server'}
+        {loading ? 'Pinging…' : 'Say hello to the server'}
       </Button>
       {error && <p className="text-destructive text-sm">{error}</p>}
       {result && !error && <PingResult {...result} />}
