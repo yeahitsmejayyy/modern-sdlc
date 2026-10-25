@@ -54,7 +54,7 @@ def ping() -> PingResponse:
         conn.execute("INSERT INTO pings (commit) VALUES (%s)", (COMMIT,))
         (count,) = conn.execute("SELECT count(*) FROM pings").fetchone()
     return PingResponse(
-        message="pong 👋",
+        message="pong from the VPS 🐳🚀",
         servedAt=datetime.now(timezone.utc),
         commit=COMMIT,
         count=count,

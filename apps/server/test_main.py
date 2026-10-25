@@ -25,7 +25,7 @@ def test_ping_increments_count(client):
     first = client.post("/api/ping").json()
     second = client.post("/api/ping").json()
 
-    assert first["message"] == "pong 👋"
+    assert first["message"] == "pong from the VPS 🐳🚀"
     assert first["commit"] == COMMIT
     assert "servedAt" in first
     assert first["count"] == 1
