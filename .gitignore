@@ -1,0 +1,18 @@
+# Node
+node_modules/
+dist/
+
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+
+# Env files (keep the example)
+.env*
+!.env.example
+
+# OS
+.DS_Store
+
+# Local notes
+.docs/

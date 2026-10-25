@@ -1,0 +1,6 @@
+{
+  "name": "modern-sdlc",
+  "private": true,
+  "type": "module",
+  "workspaces": ["apps/*", "packages/*"]
+}
