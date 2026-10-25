@@ -2,5 +2,10 @@
   "name": "modern-sdlc",
   "private": true,
   "type": "module",
-  "workspaces": ["apps/*", "packages/*"]
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose down",
+    "db:psql": "docker compose exec db psql -U app app"
+  }
 }
