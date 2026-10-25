@@ -1,0 +1,15 @@
+# With DOMAIN set (production), Caddy gets an HTTPS certificate for it automatically.
+# Without it (local), it serves plain HTTP on port 80.
+{$DOMAIN::80} {
+	@api path /api/* /health
+	handle @api {
+		reverse_proxy server:8000
+	}
+
+	# Everything else is the React app. Unknown paths fall back to index.html.
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}
