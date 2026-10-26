@@ -24,6 +24,30 @@ flowchart LR
 Only `web` is reachable from the internet. In local dev, Vite stands in for
 Caddy and forwards `/api` and `/health` to the server.
 
+## Environments
+
+Every push deploys itself. `main` goes to **production**
+(https://sdlc.itspjbell.com); any other branch goes to **staging**
+(https://sdlc-staging.itspjbell.com). A PR can only merge once its commit has
+passed on staging.
+
+Both run on one VPS as separate stacks, each with its own database. Production's
+Caddy is the only public container, so it fronts both domains:
+
+```mermaid
+flowchart LR
+  browser[Browser] -->|HTTPS| caddy["production web<br/>Caddy :443"]
+  subgraph production
+    caddy -->|sdlc.itspjbell.com| pserver["server"] --> pdb[("db")]
+  end
+  subgraph staging
+    sweb["staging web<br/>Caddy :80"] --> sserver["server"] --> sdb[("db")]
+  end
+  caddy -->|sdlc-staging.itspjbell.com<br/>over the edge network| sweb
+```
+
+How deploys, secrets and rollbacks work: [docs/deploy.md](docs/deploy.md).
+
 ## Prerequisites
 
 - [Bun](https://bun.sh) for JavaScript and TypeScript
