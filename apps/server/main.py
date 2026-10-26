@@ -3,10 +3,11 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 import psycopg
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from auth import require_auth, router as auth_router
 from db import connect, create_tables
 
 
@@ -46,9 +47,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+app.include_router(auth_router)
 
 
-@app.post("/api/ping")
+@app.post("/api/ping", dependencies=[Depends(require_auth)])
 def ping() -> PingResponse:
     with connect() as conn:
         conn.execute("INSERT INTO pings (commit) VALUES (%s)", (COMMIT,))
@@ -61,7 +63,7 @@ def ping() -> PingResponse:
     )
 
 
-@app.get("/api/pings")
+@app.get("/api/pings", dependencies=[Depends(require_auth)])
 def pings() -> list[PingRecord]:
     with connect() as conn:
         rows = conn.execute(
@@ -70,6 +72,7 @@ def pings() -> list[PingRecord]:
     return [PingRecord(id=id, createdAt=created_at, commit=commit) for id, created_at, commit in rows]
 
 
+# Public on purpose: the deploy's verify job reads it, and it reveals nothing private.
 @app.get("/health", response_model=Health)
 def health():
     try:

@@ -22,6 +22,9 @@ services:
     build: ./apps/server
     environment:
       DATABASE_URL: postgresql://app:${POSTGRES_PASSWORD:-app}@db:5432/app
+      # Empty unless set: login (or agent access) stays off rather than using a default.
+      APP_PASSWORD: ${APP_PASSWORD:-}
+      API_TOKEN: ${API_TOKEN:-}
     # No published ports: only web can reach it, over the compose network.
     depends_on:
       db:
