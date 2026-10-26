@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from '@app/ui/components/card'
 import { environment } from './environment.ts'
+import { currentTheme, setTheme, type Theme } from './theme.ts'
 
 const localTime = (iso: string) => new Date(iso).toLocaleString()
 
@@ -33,8 +34,9 @@ export default function App() {
         <CardHeader>
           <CardTitle>Frontend ↔ Backend ↔ Database</CardTitle>
           <CardDescription>Three containers, one server</CardDescription>
-          <CardAction>
+          <CardAction className="flex items-center gap-2">
             <EnvironmentBadge />
+            <ThemeToggle />
           </CardAction>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
@@ -50,6 +52,26 @@ export default function App() {
 function EnvironmentBadge() {
   if (environment === 'staging') return <Badge className="bg-amber-500 text-white">staging</Badge>
   return <Badge variant={environment === 'local' ? 'outline' : 'default'}>{environment}</Badge>
+}
+
+function ThemeToggle() {
+  const [theme, setThemeState] = useState<Theme>(currentTheme)
+  const next = theme === 'dark' ? 'light' : 'dark'
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      aria-label={`Switch to ${next} mode`}
+      title={`Switch to ${next} mode`}
+      onClick={() => {
+        setTheme(next)
+        setThemeState(next)
+      }}
+    >
+      {theme === 'dark' ? '☀' : '☾'}
+    </Button>
+  )
 }
 
 function PingButton({ onPinged }: { onPinged: () => void }) {
