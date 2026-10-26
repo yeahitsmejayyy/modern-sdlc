@@ -1,12 +1,19 @@
 name: Deploy
 
-# Every push to main: test → build images → deploy to the VPS → check it's live.
+# Every push: test → build images → deploy → check it's live.
+#   main         → production  (https://sdlc.itspjbell.com)
+#   other branch → staging     (https://sdlc-staging.itspjbell.com)
 # Run it by hand with a tag (a full commit SHA) to redeploy an older build: that's a rollback.
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   workflow_dispatch:
     inputs:
+      environment:
+        description: Where to deploy
+        type: choice
+        options: [production, staging]
+        default: production
       tag:
         description: Full commit SHA of an earlier build to redeploy (leave empty to build this commit)
         required: false
@@ -14,9 +21,10 @@ on:
 permissions:
   contents: read
 
-# One deploy at a time, and never cancel one halfway through.
+# One deploy per environment at a time, and never cancel one halfway through.
+# A staging deploy never waits for a production one, or the other way round.
 concurrency:
-  group: deploy
+  group: deploy-${{ inputs.environment || (github.ref == 'refs/heads/main' && 'production' || 'staging') }}
   cancel-in-progress: false
 
 env:
@@ -35,6 +43,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      # Every build gets its SHA tag; only main moves `latest`.
+      LATEST: ${{ github.ref == 'refs/heads/main' }}
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4
@@ -48,7 +59,9 @@ jobs:
         with:
           context: apps/server
           push: true
-          tags: ${{ env.IMAGE_PREFIX }}-server:${{ github.sha }},${{ env.IMAGE_PREFIX }}-server:latest
+          tags: |
+            ${{ env.IMAGE_PREFIX }}-server:${{ github.sha }}
+            ${{ env.LATEST == 'true' && format('{0}-server:latest', env.IMAGE_PREFIX) || '' }}
           build-args: GIT_COMMIT=${{ github.sha }}
           cache-from: type=gha,scope=server
           cache-to: type=gha,mode=max,scope=server
@@ -58,7 +71,9 @@ jobs:
           context: .
           file: apps/web/Dockerfile
           push: true
-          tags: ${{ env.IMAGE_PREFIX }}-web:${{ github.sha }},${{ env.IMAGE_PREFIX }}-web:latest
+          tags: |
+            ${{ env.IMAGE_PREFIX }}-web:${{ github.sha }}
+            ${{ env.LATEST == 'true' && format('{0}-web:latest', env.IMAGE_PREFIX) || '' }}
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
 
@@ -67,24 +82,45 @@ jobs:
     # Also runs when build was skipped because a tag was given, but never after a failure.
     if: ${{ !cancelled() && !failure() }}
     runs-on: ubuntu-latest
-    environment: production
+    # The environment holds DOMAIN and POSTGRES_PASSWORD. GitHub only lets main
+    # deploy to production, whatever this file says.
+    environment: ${{ inputs.environment || (github.ref == 'refs/heads/main' && 'production' || 'staging') }}
     permissions:
       contents: read
       packages: read
+    outputs:
+      environment: ${{ steps.target.outputs.environment }}
+      domain: ${{ vars.DOMAIN }}
     steps:
+      - name: Pick the stack on the server
+        id: target
+        env:
+          ENVIRONMENT: ${{ inputs.environment || (github.ref == 'refs/heads/main' && 'production' || 'staging') }}
+        run: |
+          if [ "$ENVIRONMENT" = production ]; then
+            dir=/opt/modern-sdlc;         project=modern-sdlc;         files=compose.yaml
+          else
+            dir=/opt/modern-sdlc-staging; project=modern-sdlc-staging; files=compose.yaml:compose.staging.yaml
+          fi
+          printf 'environment=%s\napp_dir=%s\nproject=%s\ncompose_file=%s\n' \
+            "$ENVIRONMENT" "$dir" "$project" "$files" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
-      - name: Copy compose.yaml to the server
+      - name: Copy the compose files to the server
         uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: compose.yaml
-          target: /opt/modern-sdlc
+          source: compose.yaml,compose.staging.yaml
+          target: ${{ steps.target.outputs.app_dir }}
       - name: Pull the new images and restart
         uses: appleboy/ssh-action@v1
         env:
+          APP_DIR: ${{ steps.target.outputs.app_dir }}
+          COMPOSE_PROJECT_NAME: ${{ steps.target.outputs.project }}
+          COMPOSE_FILE: ${{ steps.target.outputs.compose_file }}
           DOMAIN: ${{ vars.DOMAIN }}
+          # Only production has it: production's Caddy is the front door for staging too.
           STAGING_DOMAIN: ${{ vars.STAGING_DOMAIN }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           GHCR_USER: ${{ github.actor }}
@@ -93,14 +129,22 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: TAG,DOMAIN,STAGING_DOMAIN,POSTGRES_PASSWORD,GHCR_USER,GHCR_TOKEN
+          envs: APP_DIR,COMPOSE_PROJECT_NAME,COMPOSE_FILE,TAG,DOMAIN,STAGING_DOMAIN,POSTGRES_PASSWORD,GHCR_USER,GHCR_TOKEN
           script: |
             set -e
-            cd /opt/modern-sdlc
+            cd "$APP_DIR"
 
-            # The server's config. Only the deploy user can read it.
+            # The stack's config. Only the deploy user can read it. COMPOSE_PROJECT_NAME and
+            # COMPOSE_FILE make plain `docker compose ...` in this folder target this stack.
             umask 077
-            printf 'TAG=%s\nDOMAIN=%s\nSTAGING_DOMAIN=%s\nPOSTGRES_PASSWORD=%s\n' "$TAG" "$DOMAIN" "$STAGING_DOMAIN" "$POSTGRES_PASSWORD" > .env
+            {
+              echo "COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME"
+              echo "COMPOSE_FILE=$COMPOSE_FILE"
+              echo "TAG=$TAG"
+              echo "DOMAIN=$DOMAIN"
+              echo "STAGING_DOMAIN=$STAGING_DOMAIN"
+              echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD"
+            } > .env
             chmod 600 .env
 
             # This job's token can read the images (even private ones) and expires when the job ends.
@@ -114,11 +158,14 @@ jobs:
   verify:
     needs: deploy
     if: ${{ !cancelled() && needs.deploy.result == 'success' }}
+    # "verify (staging)" is a required check on main: a PR can't merge until its
+    # exact commit is live and healthy on staging.
+    name: verify (${{ needs.deploy.outputs.environment }})
     runs-on: ubuntu-latest
     steps:
       - name: Check /health reports this commit and a working database
         env:
-          DOMAIN: ${{ vars.DOMAIN }}
+          DOMAIN: ${{ needs.deploy.outputs.domain }}
         run: |
           want="${TAG:0:7}"
           for attempt in $(seq 1 12); do
