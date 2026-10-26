@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@app/ui/components/card'
+import { Agent } from './agent.tsx'
 import { environment } from './environment.ts'
 import { currentTheme, setTheme, type Theme } from './theme.ts'
 
@@ -48,6 +49,8 @@ export default function App() {
           {auth === 'in' && <Pinger onUnauthorized={() => setAuth('out')} />}
         </CardContent>
       </Card>
+      {/* Edith, the voice agent: only for people who are logged in. */}
+      {auth === 'in' && <Agent />}
     </main>
   )
 }
