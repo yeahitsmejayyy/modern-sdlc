@@ -12,6 +12,7 @@ import {
   type AgentStatus,
 } from '@app/ui/components/agent-widget'
 import { EDITH } from './agent-content.ts'
+import { pingsChanged } from './pings.ts'
 
 // The SDK's audio processors, served as files from this site rather than as
 // blob: or data: scripts.
@@ -110,6 +111,10 @@ export function AgentChat({ onClose }: { onClose: () => void }) {
     },
     onError: () => fail(new Error('failed')),
     onModeChange: ({ mode: m }: { mode: 'speaking' | 'listening' }) => setSpeaking(m === 'speaking'),
+    // Edith's ping tool just wrote a row: refresh the Recent pings list now.
+    onAgentToolResponse: (r: { tool_name?: string; is_error?: boolean }) => {
+      if (r.tool_name === 'ping' && !r.is_error) pingsChanged()
+    },
     onMessage: ({ message, role }: { message: string; role: 'agent' | 'user' }) => {
       const text = clean(message)
       // Typed messages are shown as they're sent; in voice, what was heard comes back here.
