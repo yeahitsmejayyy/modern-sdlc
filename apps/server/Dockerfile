@@ -10,7 +10,7 @@ COPY pyproject.toml uv.lock .python-version ./
 RUN uv sync --frozen --no-dev
 ENV PATH="/app/.venv/bin:$PATH"
 
-COPY main.py db.py ./
+COPY main.py db.py auth.py ./
 
 # CI passes the commit SHA; /health and /api/ping report it.
 ARG GIT_COMMIT=local
