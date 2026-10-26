@@ -180,3 +180,84 @@ def test_auth_log_needs_auth_and_lists_newest_first(client):
     assert [e["event"] for e in log] == ["login_ok", "login_failed"]
     assert log[0]["ip"] == "203.0.113.7"
     assert set(log[0]) == {"id", "createdAt", "event", "ip", "userAgent"}
+
+
+# --- agent session passes ---------------------------------------------------------
+
+import agent  # noqa: E402
+
+SITE = {"Origin": "http://testserver"}
+
+
+@pytest.fixture
+def elevenlabs(monkeypatch):
+    """A fake ElevenLabs: records each request and hands back a pass."""
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "test-key")
+    monkeypatch.setenv("ELEVENLABS_AGENT_ID", "agent_test")
+    calls = []
+
+    def fake(mode, api_key, agent_id):
+        calls.append((mode, api_key, agent_id))
+        return f"{mode}-pass"
+
+    monkeypatch.setattr(agent, "fetch_pass", fake)
+    return calls
+
+
+def start(client, mode="voice", ip="203.0.113.7", origin=SITE):
+    return client.post("/api/agent/session", json={"mode": mode}, headers={**origin, "X-Forwarded-For": ip})
+
+
+def test_session_needs_a_login(client, elevenlabs):
+    assert start(client).status_code == 401
+    # The agent token is for tools, not for starting conversations.
+    res = client.post("/api/agent/session", json={"mode": "voice"}, headers={**SITE, **AGENT})
+    assert res.status_code == 401
+    assert elevenlabs == []
+
+
+def test_voice_gets_a_token_and_chat_a_signed_url(client, elevenlabs):
+    login(client)
+    assert start(client, "voice").json() == {"token": "voice-pass"}
+    assert start(client, "chat").json() == {"signedUrl": "chat-pass"}
+    assert elevenlabs == [("voice", "test-key", "agent_test"), ("chat", "test-key", "agent_test")]
+    assert events().count("agent_session") == 2
+
+
+def test_session_refuses_other_sites(client, elevenlabs):
+    login(client)
+    assert start(client, origin={"Origin": "https://evil.example"}).status_code == 403
+    assert start(client, origin={}).status_code == 403
+    assert elevenlabs == []
+
+
+def test_session_is_off_without_config(client, monkeypatch):
+    login(client)
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "")
+    assert start(client).status_code == 503
+
+
+def test_session_reports_an_elevenlabs_failure(client, elevenlabs, monkeypatch):
+    login(client)
+
+    def refuse(*_):
+        raise OSError("401 Unauthorized")
+
+    monkeypatch.setattr(agent, "fetch_pass", refuse)
+    assert start(client).status_code == 502
+    assert "agent_session" not in events()
+
+
+def test_six_sessions_per_ip_per_hour(client, elevenlabs):
+    login(client)
+    codes = [start(client).status_code for _ in range(7)]
+    assert codes == [200] * 6 + [429]
+    assert start(client, ip="198.51.100.9").status_code == 200
+
+
+def test_daily_cap_across_everyone(client, elevenlabs, monkeypatch):
+    login(client)
+    monkeypatch.setenv("AGENT_DAILY_CAP", "2")
+    codes = [start(client, ip=f"198.51.100.{i}").status_code for i in range(3)]
+    assert codes == [200, 200, 429]
+    assert start(client).json()["detail"] == {"error": "busy", "reason": "daily"}
