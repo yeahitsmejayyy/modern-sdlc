@@ -104,6 +104,21 @@ jobs:
           fi
           printf 'environment=%s\napp_dir=%s\nproject=%s\ncompose_file=%s\n' \
             "$ENVIRONMENT" "$dir" "$project" "$files" >> "$GITHUB_OUTPUT"
+      - name: Refuse to deploy without a login password
+        env:
+          APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
+          ENVIRONMENT: ${{ steps.target.outputs.environment }}
+        run: |
+          # Without it nobody could log in; never ship an environment like that.
+          if [ -z "$APP_PASSWORD" ]; then
+            echo "::error::APP_PASSWORD isn't set for $ENVIRONMENT. Set it with: gh secret set APP_PASSWORD --env $ENVIRONMENT"
+            exit 1
+          fi
+          # .env wraps it in single quotes so $, # and spaces stay literal; a quote would end it early.
+          case "$APP_PASSWORD" in *"'"*)
+            echo "::error::APP_PASSWORD for $ENVIRONMENT can't contain a single quote (')."
+            exit 1;;
+          esac
       - uses: actions/checkout@v7
       - name: Copy the compose files to the server
         uses: appleboy/scp-action@v1
@@ -123,13 +138,15 @@ jobs:
           # Only production has it: production's Caddy is the front door for staging too.
           STAGING_DOMAIN: ${{ vars.STAGING_DOMAIN }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
+          API_TOKEN: ${{ secrets.API_TOKEN }}
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: APP_DIR,COMPOSE_PROJECT_NAME,COMPOSE_FILE,TAG,DOMAIN,STAGING_DOMAIN,POSTGRES_PASSWORD,GHCR_USER,GHCR_TOKEN
+          envs: APP_DIR,COMPOSE_PROJECT_NAME,COMPOSE_FILE,TAG,DOMAIN,STAGING_DOMAIN,POSTGRES_PASSWORD,APP_PASSWORD,API_TOKEN,GHCR_USER,GHCR_TOKEN
           script: |
             set -e
             cd "$APP_DIR"
@@ -144,6 +161,9 @@ jobs:
               echo "DOMAIN=$DOMAIN"
               echo "STAGING_DOMAIN=$STAGING_DOMAIN"
               echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD"
+              # Single-quoted: compose reads these literally, with no $ interpolation.
+              echo "APP_PASSWORD='$APP_PASSWORD'"
+              echo "API_TOKEN='$API_TOKEN'"
             } > .env
             chmod 600 .env
 

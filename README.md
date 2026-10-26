@@ -46,7 +46,10 @@ flowchart LR
   caddy -->|sdlc-staging.itspjbell.com<br/>over the edge network| sweb
 ```
 
-How deploys, secrets and rollbacks work: [docs/deploy.md](docs/deploy.md).
+Both environments ask for a password (5 wrong tries lock you out for 15
+minutes), and every login attempt is logged. Agents use an API token instead.
+
+How deploys, logins, secrets and rollbacks work: [docs/deploy.md](docs/deploy.md).
 
 ## Prerequisites
 
@@ -62,7 +65,7 @@ bun run db:up   # start Postgres in a container
 bun run dev     # start the server (:8000) and the web app (:5173)
 ```
 
-Open http://localhost:5173 and click **Say hello to the server**.
+Open http://localhost:5173, log in with `app`, and click **Say hello to the server**.
 
 Other scripts: `bun run test`, `bun run typecheck`, `bun run build`,
 `bun run db:psql`, and `bun run db:down`.

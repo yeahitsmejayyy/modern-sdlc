@@ -80,6 +80,8 @@ These live in the GitHub repo under **Settings → Secrets and variables → Act
 | `STAGING_DOMAIN` | Variable | `production` | `sdlc-staging.itspjbell.com`, so production's Caddy knows the second site |
 | `POSTGRES_PASSWORD` | Secret | `production` | Production's database password |
 | `POSTGRES_PASSWORD` | Secret | `staging` | A different password for staging's database |
+| `APP_PASSWORD` | Secret | `production`, `staging` | The login password, different per environment. A deploy fails if it's missing. No single quotes |
+| `API_TOKEN` | Secret | `production`, `staging` | Bearer token for agents such as Edith. Empty switches agent access off |
 
 The server, user and key are shared because both stacks live on the same box as
 the same user. Set each `POSTGRES_PASSWORD` once and don't change it: Postgres only
@@ -91,6 +93,33 @@ would try to get a certificate for a domain that production's Caddy answers.
 The images are pulled with the deploy job's own short-lived `GITHUB_TOKEN`, so
 they can stay private. Nothing else is stored on the server except each stack's
 `.env` (mode 600, readable only by `deploy`).
+
+## Logging in
+
+Both environments sit behind one shared password per environment (`APP_PASSWORD`).
+The web app shows a login card first; the server checks every API call.
+
+- **People** log in with the password and get a session cookie (HttpOnly,
+  SameSite=Lax, Secure, 7 days). Only a hash of the session is stored.
+- **Agents** send `Authorization: Bearer <API_TOKEN>` instead (Edith's tools do).
+- **Lockout:** 5 wrong passwords from one IP within 15 minutes lock that IP for 15
+  minutes. While locked, even the right password is refused.
+- **Public on purpose:** `/health`, because the deploy's verify job reads it.
+
+Every login, failure, lockout, logout and rejected token is recorded in the
+`auth_events` table, with the time, IP and browser. Logged in, the latest 50 are
+at `/api/auth/events`. To read more from the server:
+
+```bash
+ssh -i ~/.ssh/modern_sdlc_deploy deploy@31.220.31.88 \
+  'cd /opt/modern-sdlc && docker compose exec -T db psql -U app app \
+   -c "select created_at, event, ip from auth_events order by id desc limit 50;"'
+```
+
+To change a password or token, set the secret again and redeploy that
+environment (`gh workflow run deploy.yml -f environment=… -f tag=<current SHA>`).
+Existing sessions stay valid until they expire; to end them all, run
+`delete from sessions;` in that environment's database.
 
 ## Rolling back
 
