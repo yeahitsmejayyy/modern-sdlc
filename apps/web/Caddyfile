@@ -1,3 +1,13 @@
+# Trust X-Forwarded-For only from Docker's private networks. Staging's Caddy sits
+# behind production's, so without this every staging visitor would show up as
+# production's Caddy, and share one login lockout. Visitors' own headers are still
+# ignored: they arrive from public addresses.
+{
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
 # With DOMAIN set (production), Caddy gets an HTTPS certificate for it automatically.
 # Without it (local), it serves plain HTTP on port 80.
 {$DOMAIN::80} {
