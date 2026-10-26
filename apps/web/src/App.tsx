@@ -1,7 +1,16 @@
 import { useEffect, useState } from 'react'
 import type { PingRecord, PingResponse } from '@app/schema'
+import { Badge } from '@app/ui/components/badge'
 import { Button } from '@app/ui/components/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@app/ui/components/card'
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@app/ui/components/card'
+import { environment } from './environment.ts'
 
 const localTime = (iso: string) => new Date(iso).toLocaleString()
 
@@ -24,6 +33,9 @@ export default function App() {
         <CardHeader>
           <CardTitle>Frontend ↔ Backend ↔ Database</CardTitle>
           <CardDescription>Three containers, one server</CardDescription>
+          <CardAction>
+            <EnvironmentBadge />
+          </CardAction>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
           <PingButton onPinged={loadPings} />
@@ -32,6 +44,12 @@ export default function App() {
       </Card>
     </main>
   )
+}
+
+// Staging gets a loud colour so it can't be mistaken for production at a glance.
+function EnvironmentBadge() {
+  if (environment === 'staging') return <Badge className="bg-amber-500 text-white">staging</Badge>
+  return <Badge variant={environment === 'local' ? 'outline' : 'default'}>{environment}</Badge>
 }
 
 function PingButton({ onPinged }: { onPinged: () => void }) {
