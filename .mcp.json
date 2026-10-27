@@ -1,0 +1,25 @@
+{
+  "mcpServers": {
+    "sdlc-staging": {
+      "type": "http",
+      "url": "https://sdlc-staging.itspjbell.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${SDLC_STAGING_TOKEN:-}"
+      }
+    },
+    "sdlc-staging-read": {
+      "type": "http",
+      "url": "https://sdlc-staging.itspjbell.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${SDLC_STAGING_READ_TOKEN:-}"
+      }
+    },
+    "sdlc-local": {
+      "type": "http",
+      "url": "http://localhost:8000/mcp",
+      "headers": {
+        "Authorization": "Bearer local"
+      }
+    }
+  }
+}

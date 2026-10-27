@@ -9,8 +9,9 @@ from pydantic import BaseModel
 
 from db import connect
 
-# One shared password per environment, for people, and one API token, for agents.
-# Both come from the environment. Empty means that way in is switched off: a
+# One shared password per environment, for people, and API tokens, for agents:
+# API_TOKEN can do everything; API_READ_TOKEN can only look. All come from the
+# environment. Empty means that way in is switched off: a
 # deployed container never falls back to a default password.
 COOKIE = "sdlc_session"
 SESSION_LENGTH = timedelta(days=7)
@@ -24,6 +25,13 @@ def app_password() -> str:
 
 def api_token() -> str:
     return os.environ.get("API_TOKEN", "")
+
+
+def api_read_token() -> str:
+    return os.environ.get("API_READ_TOKEN", "")
+
+
+FULL, READ = "full", "read"
 
 
 def matches(given: str, expected: str) -> bool:
@@ -77,16 +85,37 @@ def has_session(request: Request) -> bool:
     return row is not None
 
 
-def require_auth(request: Request) -> None:
-    """A FastAPI dependency: a logged-in browser, or an agent with the API token."""
+def agent_access(request: Request) -> str | None:
+    """FULL or READ for an agent's token; None when it sent none. A wrong token is
+    logged and refused (401)."""
     header = request.headers.get("authorization", "")
-    if header.startswith("Bearer "):
-        if matches(header.removeprefix("Bearer "), api_token()):
-            return
-        with connect() as conn:
-            log_event(conn, "api_token_rejected", request)
-        raise HTTPException(401, "Invalid API token")
+    if not header.startswith("Bearer "):
+        return None
+    token = header.removeprefix("Bearer ")
+    if matches(token, api_token()):
+        return FULL
+    if matches(token, api_read_token()):
+        return READ
+    with connect() as conn:
+        log_event(conn, "api_token_rejected", request)
+    raise HTTPException(401, "Invalid API token")
+
+
+def require_auth(request: Request) -> None:
+    """A FastAPI dependency: a logged-in browser, or an agent with the full API token."""
+    access = agent_access(request)
+    if access == FULL:
+        return
+    if access == READ:
+        raise HTTPException(403, "This token is read-only")
     if has_session(request):
+        return
+    raise HTTPException(401, "Log in first")
+
+
+def require_read(request: Request) -> None:
+    """Like require_auth, but the read-only token is enough too. For routes that only read."""
+    if agent_access(request) or has_session(request):
         return
     raise HTTPException(401, "Log in first")
 

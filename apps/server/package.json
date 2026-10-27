@@ -2,7 +2,7 @@
   "name": "@app/server",
   "private": true,
   "scripts": {
-    "dev": "APP_PASSWORD=app uv run uvicorn main:app --reload --port 8000",
+    "dev": "APP_PASSWORD=app API_TOKEN=local API_READ_TOKEN=local-read uv run uvicorn main:app --reload --port 8000",
     "test": "uv run pytest"
   }
 }

@@ -4,6 +4,9 @@
   "workspaces": {
     "": {
       "name": "modern-sdlc",
+      "dependencies": {
+        "@app/schema": "workspace:*",
+      },
     },
     "apps/server": {
       "name": "@app/server",

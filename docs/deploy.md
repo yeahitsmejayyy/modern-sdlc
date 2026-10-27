@@ -81,7 +81,8 @@ These live in the GitHub repo under **Settings → Secrets and variables → Act
 | `POSTGRES_PASSWORD` | Secret | `production` | Production's database password |
 | `POSTGRES_PASSWORD` | Secret | `staging` | A different password for staging's database |
 | `APP_PASSWORD` | Secret | `production`, `staging` | The login password, different per environment. A deploy fails if it's missing. No single quotes |
-| `API_TOKEN` | Secret | `production`, `staging` | Bearer token for agents such as Edith. Empty switches agent access off |
+| `API_TOKEN` | Secret | `production`, `staging` | Full bearer token for agents such as Edith. Empty switches agent access off |
+| `API_READ_TOKEN` | Secret (optional) | `production`, `staging` | Read-only bearer token: can list pings and check health, can't ping. Empty means none |
 | `ELEVENLABS_API_KEY` | Secret | `production`, `staging` | ElevenLabs key for the "ask edith" widget. Needs only **ElevenAgents: Write** |
 | `ELEVENLABS_AGENT_ID` | Variable | `production`, `staging` | Edith's agent ID |
 | `AGENT_HOURLY_CAP` | Variable (optional) | either | Conversations per IP per hour; default 6 |
@@ -106,6 +107,8 @@ The web app shows a login card first; the server checks every API call.
 - **People** log in with the password and get a session cookie (HttpOnly,
   SameSite=Lax, Secure, 7 days). Only a hash of the session is stored.
 - **Agents** send `Authorization: Bearer <API_TOKEN>` instead (Edith's tools do).
+  An agent that should only look gets `API_READ_TOKEN`: it can read pings and
+  health, and is refused (403) anything that changes data.
 - **Lockout:** 5 wrong passwords from one IP within 15 minutes lock that IP for 15
   minutes. While locked, even the right password is refused.
 - **Public on purpose:** `/health`, because the deploy's verify job reads it.

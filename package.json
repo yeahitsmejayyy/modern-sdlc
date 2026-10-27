@@ -10,6 +10,10 @@
     "build": "bun --filter @app/web build",
     "db:up": "docker compose up -d db",
     "db:down": "docker compose down",
-    "db:psql": "docker compose exec db psql -U app app"
+    "db:psql": "docker compose exec db psql -U app app",
+    "sdlc": "bun scripts/sdlc.ts"
+  },
+  "dependencies": {
+    "@app/schema": "workspace:*"
   }
 }

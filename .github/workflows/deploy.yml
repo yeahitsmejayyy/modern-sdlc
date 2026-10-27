@@ -140,6 +140,7 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
           API_TOKEN: ${{ secrets.API_TOKEN }}
+          API_READ_TOKEN: ${{ secrets.API_READ_TOKEN }}
           # The voice agent behind the "ask edith" widget. The key is secret; the agent ID isn't.
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           ELEVENLABS_AGENT_ID: ${{ vars.ELEVENLABS_AGENT_ID }}
@@ -151,7 +152,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: APP_DIR,COMPOSE_PROJECT_NAME,COMPOSE_FILE,TAG,DOMAIN,STAGING_DOMAIN,POSTGRES_PASSWORD,APP_PASSWORD,API_TOKEN,ELEVENLABS_API_KEY,ELEVENLABS_AGENT_ID,AGENT_HOURLY_CAP,AGENT_DAILY_CAP,GHCR_USER,GHCR_TOKEN
+          envs: APP_DIR,COMPOSE_PROJECT_NAME,COMPOSE_FILE,TAG,DOMAIN,STAGING_DOMAIN,POSTGRES_PASSWORD,APP_PASSWORD,API_TOKEN,API_READ_TOKEN,ELEVENLABS_API_KEY,ELEVENLABS_AGENT_ID,AGENT_HOURLY_CAP,AGENT_DAILY_CAP,GHCR_USER,GHCR_TOKEN
           script: |
             set -e
             cd "$APP_DIR"
@@ -169,6 +170,7 @@ jobs:
               # Single-quoted: compose reads these literally, with no $ interpolation.
               echo "APP_PASSWORD='$APP_PASSWORD'"
               echo "API_TOKEN='$API_TOKEN'"
+              echo "API_READ_TOKEN='$API_READ_TOKEN'"
               echo "ELEVENLABS_API_KEY='$ELEVENLABS_API_KEY'"
               echo "ELEVENLABS_AGENT_ID=$ELEVENLABS_AGENT_ID"
               echo "AGENT_HOURLY_CAP=$AGENT_HOURLY_CAP"
