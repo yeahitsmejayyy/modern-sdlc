@@ -28,6 +28,7 @@ services:
       # The voice agent (Edith). Empty means the agent widget can't start conversations.
       ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
       ELEVENLABS_AGENT_ID: ${ELEVENLABS_AGENT_ID:-}
+      AGENT_HOURLY_CAP: ${AGENT_HOURLY_CAP:-}
       AGENT_DAILY_CAP: ${AGENT_DAILY_CAP:-}
     # No published ports: only web can reach it, over the compose network.
     depends_on:

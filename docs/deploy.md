@@ -84,6 +84,7 @@ These live in the GitHub repo under **Settings → Secrets and variables → Act
 | `API_TOKEN` | Secret | `production`, `staging` | Bearer token for agents such as Edith. Empty switches agent access off |
 | `ELEVENLABS_API_KEY` | Secret | `production`, `staging` | ElevenLabs key for the "ask edith" widget. Needs only **ElevenAgents: Write** |
 | `ELEVENLABS_AGENT_ID` | Variable | `production`, `staging` | Edith's agent ID |
+| `AGENT_HOURLY_CAP` | Variable (optional) | either | Conversations per IP per hour; default 6 |
 | `AGENT_DAILY_CAP` | Variable (optional) | either | Conversations per UTC day across everyone; default 24 |
 
 The server, user and key are shared because both stacks live on the same box as
@@ -130,7 +131,8 @@ Logged-in visitors get an **ask edith** button. Opening it asks the server
 (`POST /api/agent/session`) for a short-lived ElevenLabs pass, so the API key never
 reaches the browser. Edith requires authentication in ElevenLabs, so only these
 passes work. Each pass is logged as `agent_session` in the auth log; the limits are
-6 per IP per hour and `AGENT_DAILY_CAP` a day.
+`AGENT_HOURLY_CAP` per IP per hour (default 6) and `AGENT_DAILY_CAP` a day
+(default 24). Opening a chat, switching to voice and starting again each use a pass.
 
 Edith's `ping` is a **client tool**: ElevenLabs asks the browser to run it, and the
 widget calls `POST /api/ping` on the site it's open on, with the visitor's login. So

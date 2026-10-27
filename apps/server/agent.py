@@ -16,7 +16,7 @@ from db import connect
 #
 # POST /api/agent/session {mode: "voice" | "chat"}
 #   → { token } for voice (WebRTC), or { signedUrl } for chat (WebSocket, text only)
-PER_IP_PER_HOUR = 6
+PER_IP_PER_HOUR = 6  # Default for AGENT_HOURLY_CAP: passes per IP per hour.
 DAILY_CAP = 24  # Default for AGENT_DAILY_CAP: passes per UTC day across everyone.
 
 ELEVENLABS = "https://api.elevenlabs.io/v1/convai/conversation"
@@ -64,6 +64,7 @@ def session(body: SessionRequest, request: Request) -> SessionPass:
         raise HTTPException(503, "The agent isn't set up on this server")
 
     # Limits, counted from the auth log so they hold across restarts.
+    hourly = int(os.environ.get("AGENT_HOURLY_CAP") or PER_IP_PER_HOUR)
     cap = int(os.environ.get("AGENT_DAILY_CAP") or DAILY_CAP)
     with connect() as conn:
         (recent,) = conn.execute(
@@ -73,7 +74,7 @@ def session(body: SessionRequest, request: Request) -> SessionPass:
         (today,) = conn.execute(
             "SELECT count(*) FROM auth_events WHERE event = 'agent_session' AND created_at >= date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'"
         ).fetchone()
-    if recent >= PER_IP_PER_HOUR:
+    if recent >= hourly:
         raise HTTPException(429, {"error": "busy", "reason": "rate"})
     if today >= cap:
         raise HTTPException(429, {"error": "busy", "reason": "daily"})
