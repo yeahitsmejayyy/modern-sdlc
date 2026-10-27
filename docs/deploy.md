@@ -132,9 +132,16 @@ reaches the browser. Edith requires authentication in ElevenLabs, so only these
 passes work. Each pass is logged as `agent_session` in the auth log; the limits are
 6 per IP per hour and `AGENT_DAILY_CAP` a day.
 
-Edith's tools call **staging's** API with the staging `API_TOKEN`, whichever site
-the widget is on. Changes to Edith in the ElevenLabs dashboard take effect only once
-they're **published**; Preview uses drafts.
+Edith's `ping` is a **client tool**: ElevenLabs asks the browser to run it, and the
+widget calls `POST /api/ping` on the site it's open on, with the visitor's login. So
+a ping on production lands in production, and **Recent pings** refreshes the moment
+it does (the list also polls every 5 seconds while the tab is visible). Her
+`list_pings` and `health` are webhook tools that call **staging's** API with the
+staging `API_TOKEN`, whichever site the widget is on. In the ElevenLabs Preview
+there's no widget, so `ping` doesn't work there.
+
+Changes to Edith in the ElevenLabs dashboard take effect only once they're
+**published**; Preview uses drafts.
 
 ## Rolling back
 
