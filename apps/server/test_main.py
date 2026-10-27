@@ -255,6 +255,13 @@ def test_six_sessions_per_ip_per_hour(client, elevenlabs):
     assert start(client, ip="198.51.100.9").status_code == 200
 
 
+def test_hourly_cap_from_env(client, elevenlabs, monkeypatch):
+    login(client)
+    monkeypatch.setenv("AGENT_HOURLY_CAP", "2")
+    codes = [start(client).status_code for _ in range(3)]
+    assert codes == [200, 200, 429]
+
+
 def test_daily_cap_across_everyone(client, elevenlabs, monkeypatch):
     login(client)
     monkeypatch.setenv("AGENT_DAILY_CAP", "2")
