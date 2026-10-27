@@ -4,13 +4,16 @@ import pytest
 from fastapi.testclient import TestClient
 from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
+from mcp.shared.exceptions import MCPError
 
 from db import connect
 from main import COMMIT, app, short_commit
 
 PASSWORD = "test-password"
 TOKEN = "test-token"
+READ_TOKEN = "test-read-token"
 AGENT = {"Authorization": f"Bearer {TOKEN}"}
+READER = {"Authorization": f"Bearer {READ_TOKEN}"}
 
 
 # These tests run against the real Postgres at DATABASE_URL, and empty its
@@ -19,6 +22,7 @@ AGENT = {"Authorization": f"Bearer {TOKEN}"}
 def client(monkeypatch):
     monkeypatch.setenv("APP_PASSWORD", PASSWORD)
     monkeypatch.setenv("API_TOKEN", TOKEN)
+    monkeypatch.setenv("API_READ_TOKEN", READ_TOKEN)
     with TestClient(app) as client:  # entering runs the lifespan, which creates the tables
         with connect() as conn:
             conn.execute("TRUNCATE pings, sessions, auth_events RESTART IDENTITY")
@@ -277,12 +281,12 @@ def test_daily_cap_across_everyone(client, elevenlabs, monkeypatch):
 # --- MCP at /mcp ------------------------------------------------------------------
 
 
-def with_mcp(check):
+def with_mcp(check, headers=AGENT):
     """Runs `check(client)` against /mcp through a real MCP client, in-process."""
 
     async def run():
         async with app.router.lifespan_context(app):
-            http = httpx2.AsyncClient(transport=httpx2.ASGITransport(app=app), headers=AGENT)
+            http = httpx2.AsyncClient(transport=httpx2.ASGITransport(app=app), headers=headers)
             async with http, Client(streamable_http_client("http://test/mcp", http_client=http)) as mcp:
                 return await check(mcp)
 
@@ -317,3 +321,39 @@ def test_mcp_needs_the_api_token(client):
     assert client.post("/mcp", json={}).status_code == 401
     assert client.post("/mcp", json={}, headers={"Authorization": "Bearer wrong"}).status_code == 401
     assert events() == ["api_token_rejected"]
+
+
+# --- the read-only token ----------------------------------------------------------
+
+
+def test_read_token_reads_but_cant_ping_over_rest(client):
+    client.post("/api/ping", headers=AGENT)
+    assert len(client.get("/api/pings", headers=READER).json()) == 1
+    assert client.post("/api/ping", headers=READER).status_code == 403
+    assert client.get("/api/auth/events", headers=READER).status_code == 403
+
+
+def test_read_token_sees_only_the_read_tools(client):
+    async def check(mcp):
+        return sorted(tool.name for tool in (await mcp.list_tools()).tools)
+
+    assert with_mcp(check, headers=READER) == ["health", "list_pings"]
+
+
+def test_read_token_cant_call_ping_even_by_name(client):
+    async def check(mcp):
+        try:
+            await mcp.call_tool("ping")
+        except MCPError as e:
+            return e.error.message
+        return "called"
+
+    assert with_mcp(check, headers=READER) == "This token can't use ping"
+    assert client.get("/api/pings", headers=AGENT).json() == []
+
+
+def test_tools_say_which_ones_only_read(client):
+    async def check(mcp):
+        return {t.name: t.annotations.read_only_hint for t in (await mcp.list_tools()).tools}
+
+    assert with_mcp(check) == {"ping": False, "list_pings": True, "health": True}

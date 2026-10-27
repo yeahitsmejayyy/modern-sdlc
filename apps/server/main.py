@@ -4,7 +4,7 @@ from fastapi import Depends, FastAPI
 from fastapi.responses import JSONResponse
 
 from agent import router as agent_router
-from auth import require_auth, router as auth_router
+from auth import require_auth, require_read, router as auth_router
 from db import create_tables
 from mcp_server import endpoint as mcp_endpoint, serving as mcp_serving
 from pings import COMMIT, Health, PingRecord, PingResponse, check_health, recent_pings, record_ping, short_commit  # noqa: F401 (tests import these from main)
@@ -28,7 +28,7 @@ def ping() -> PingResponse:
     return record_ping()
 
 
-@app.get("/api/pings", dependencies=[Depends(require_auth)])
+@app.get("/api/pings", dependencies=[Depends(require_read)])
 def pings() -> list[PingRecord]:
     return recent_pings()
 

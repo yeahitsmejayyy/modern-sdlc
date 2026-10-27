@@ -1,27 +1,49 @@
 from contextlib import asynccontextmanager
 
+from fastapi import HTTPException
 from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
+from mcp.shared.exceptions import MCPError
+from mcp_types import INVALID_PARAMS, ToolAnnotations
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from auth import api_token, log_event, matches
-from db import connect
+from auth import FULL, READ, agent_access
 from pings import Health, PingRecord, PingResponse, check_health, recent_pings, record_ping
 
 # The same three actions as the REST API, as MCP tools, at /mcp. Any MCP client
 # (Claude Code, Claude Desktop, ...) connects once and discovers them itself.
-# Callers send the environment's API_TOKEN, exactly like agents calling the API.
-#
-#   claude mcp add --transport http sdlc https://<host>/mcp \
-#     --header "Authorization: Bearer $SDLC_TOKEN"
+# Callers send an agent token, exactly like agents calling the API, and each token
+# gets its own set of tools. The read token can't even see ping.
+TOOLS = {
+    FULL: {"ping", "list_pings", "health"},
+    READ: {"list_pings", "health"},
+}
+
+
+async def only_allowed_tools(ctx, call_next):
+    """Hides the tools a token can't use, and refuses them if they're called anyway."""
+    allowed = ctx.request.state.tools
+    name = (ctx.params or {}).get("name")
+    if ctx.method == "tools/call" and name not in allowed:
+        raise MCPError(INVALID_PARAMS, f"This token can't use {name}")
+    result = await call_next(ctx)
+    if ctx.method == "tools/list":
+        result["tools"] = [tool for tool in result["tools"] if tool["name"] in allowed]
+    return result
+
+
 server = MCPServer(
     name="sdlc",
     instructions="Tools for modern-sdlc, a demo app whose server records pings in Postgres.",
+    middleware=[only_allowed_tools],
 )
 
+# Hints for the agent (not rules): which tools only read, so it can ask first for the rest.
+READS = ToolAnnotations(read_only_hint=True)
 
-@server.tool()
+
+@server.tool(annotations=ToolAnnotations(read_only_hint=False, destructive_hint=False))
 def ping() -> PingResponse:
     """Records a new ping in this environment's database. Use when asked to ping,
     poke, hit or test the server. Returns the ping's number (also the total so far),
@@ -29,14 +51,14 @@ def ping() -> PingResponse:
     return record_ping()
 
 
-@server.tool()
+@server.tool(annotations=READS)
 def list_pings() -> list[PingRecord]:
     """Reads the 10 most recent pings, newest first, each with its id, time (UTC)
     and the commit of the server that recorded it. Use for recent activity or history."""
     return recent_pings()
 
 
-@server.tool()
+@server.tool(annotations=READS)
 def health() -> Health:
     """Checks whether the server and its database are up. ok and db both true
     means healthy. commit is the build that's running."""
@@ -60,18 +82,19 @@ async def serving():
 
 
 class Endpoint:
-    """/mcp itself: refuses anything without the API token, then hands over to MCP.
-    A raw ASGI app (a class, not a function), so Starlette passes the request
-    through untouched rather than treating it as a normal route handler."""
+    """/mcp itself: refuses anything without an agent token, notes which tools that
+    token may use, then hands over to MCP. A raw ASGI app (a class, not a function),
+    so Starlette passes the request through untouched rather than treating it as a
+    normal route handler."""
 
     async def __call__(self, scope, receive, send):
-        request = Request(scope)
-        header = request.headers.get("authorization", "")
-        if not (header.startswith("Bearer ") and matches(header.removeprefix("Bearer "), api_token())):
-            if header:
-                with connect() as conn:
-                    log_event(conn, "api_token_rejected", request)
+        try:
+            access = agent_access(Request(scope))  # logs a wrong token
+        except HTTPException:
+            access = None
+        if access is None:
             return await JSONResponse({"detail": "Invalid API token"}, status_code=401)(scope, receive, send)
+        scope.setdefault("state", {})["tools"] = TOOLS[access]
         await server.session_manager.handle_request(scope, receive, send)
 
 

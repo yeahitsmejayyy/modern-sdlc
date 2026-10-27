@@ -25,6 +25,7 @@ services:
       # Empty unless set: login (or agent access) stays off rather than using a default.
       APP_PASSWORD: ${APP_PASSWORD:-}
       API_TOKEN: ${API_TOKEN:-}
+      API_READ_TOKEN: ${API_READ_TOKEN:-}
       # The voice agent (Edith). Empty means the agent widget can't start conversations.
       ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
       ELEVENLABS_AGENT_ID: ${ELEVENLABS_AGENT_ID:-}
