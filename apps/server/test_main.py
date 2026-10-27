@@ -1,5 +1,9 @@
+import anyio
+import httpx2
 import pytest
 from fastapi.testclient import TestClient
+from mcp import Client
+from mcp.client.streamable_http import streamable_http_client
 
 from db import connect
 from main import COMMIT, app, short_commit
@@ -268,3 +272,48 @@ def test_daily_cap_across_everyone(client, elevenlabs, monkeypatch):
     codes = [start(client, ip=f"198.51.100.{i}").status_code for i in range(3)]
     assert codes == [200, 200, 429]
     assert start(client).json()["detail"] == {"error": "busy", "reason": "daily"}
+
+
+# --- MCP at /mcp ------------------------------------------------------------------
+
+
+def with_mcp(check):
+    """Runs `check(client)` against /mcp through a real MCP client, in-process."""
+
+    async def run():
+        async with app.router.lifespan_context(app):
+            http = httpx2.AsyncClient(transport=httpx2.ASGITransport(app=app), headers=AGENT)
+            async with http, Client(streamable_http_client("http://test/mcp", http_client=http)) as mcp:
+                return await check(mcp)
+
+    return anyio.run(run)
+
+
+def test_mcp_lists_the_three_tools(client):
+    async def check(mcp):
+        return sorted(tool.name for tool in (await mcp.list_tools()).tools)
+
+    assert with_mcp(check) == ["health", "list_pings", "ping"]
+
+
+def test_mcp_tools_match_the_api(client):
+    async def check(mcp):
+        first = (await mcp.call_tool("ping")).structured_content
+        second = (await mcp.call_tool("ping")).structured_content
+        recent = (await mcp.call_tool("list_pings")).structured_content
+        health = (await mcp.call_tool("health")).structured_content
+        return first, second, recent, health
+
+    first, second, recent, health = with_mcp(check)
+    assert first["message"] == "pong from the VPS 🐳🚀"
+    assert (first["count"], second["count"], first["commit"]) == (1, 2, COMMIT)
+    assert [row["id"] for row in recent["result"]] == [2, 1]
+    assert health == {"ok": True, "db": True, "commit": COMMIT}
+    # The MCP pings are real rows: the REST API sees them too.
+    assert len(client.get("/api/pings", headers=AGENT).json()) == 2
+
+
+def test_mcp_needs_the_api_token(client):
+    assert client.post("/mcp", json={}).status_code == 401
+    assert client.post("/mcp", json={}, headers={"Authorization": "Bearer wrong"}).status_code == 401
+    assert events() == ["api_token_rejected"]

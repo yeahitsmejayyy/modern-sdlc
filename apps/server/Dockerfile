@@ -11,7 +11,7 @@ RUN uv sync --frozen --no-dev
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Every module the app imports: a file missing here only shows up as a crash on deploy.
-COPY main.py db.py auth.py agent.py ./
+COPY main.py db.py auth.py agent.py pings.py mcp_server.py ./
 
 # CI passes the commit SHA; /health and /api/ping report it.
 ARG GIT_COMMIT=local
