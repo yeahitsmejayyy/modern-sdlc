@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import type { AuthLocked, PingRecord, PingResponse } from '@app/schema'
 import { Badge } from '@app/ui/components/badge'
 import { Button } from '@app/ui/components/button'
@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from '@app/ui/components/card'
 import { Agent } from './agent.tsx'
+import { arrive } from './arrival.ts'
 import { environment } from './environment.ts'
 import { PINGS_CHANGED } from './pings.ts'
 import { currentTheme, setTheme, type Theme } from './theme.ts'
@@ -265,15 +266,30 @@ function PingResult({ ping, roundTripMs }: { ping: PingResponse; roundTripMs: nu
 }
 
 function RecentPings({ pings }: { pings: PingRecord[] }) {
+  const list = useRef<HTMLUListElement>(null)
+  // The newest id already on screen. Starts unknown, so the first load just appears.
+  const newest = useRef<number | null>(null)
+
+  // Before paint, send in any rows newer than what was showing.
+  useLayoutEffect(() => {
+    if (!pings.length) return
+    const seen = newest.current
+    newest.current = Math.max(seen ?? 0, ...pings.map((p) => p.id))
+    if (seen === null) return
+    for (const row of list.current?.querySelectorAll<HTMLElement>('[data-id]') ?? []) {
+      if (Number(row.dataset.id) > seen) arrive(row)
+    }
+  }, [pings])
+
   return (
     <div className="flex flex-col gap-2">
       <h2 className="text-sm font-semibold">Recent pings</h2>
       {pings.length === 0 ? (
         <p className="text-muted-foreground text-sm">No pings yet.</p>
       ) : (
-        <ul className="text-sm">
+        <ul ref={list} className="text-sm">
           {pings.map((p) => (
-            <li key={p.id} className="flex justify-between border-b py-1 last:border-b-0">
+            <li key={p.id} data-id={p.id} className="flex justify-between border-b py-1 last:border-b-0">
               <span>#{p.id}</span>
               <span className="text-muted-foreground">{localTime(p.createdAt)}</span>
               <span className="font-mono">{p.commit}</span>
