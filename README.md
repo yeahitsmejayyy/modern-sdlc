@@ -51,6 +51,14 @@ minutes), and every login attempt is logged. Agents use an API token instead.
 
 How deploys, logins, secrets and rollbacks work: [docs/deploy.md](docs/deploy.md).
 
+## Agents
+
+Agents can ping the server, list pings and check health too, with a token
+instead of a password: Edith (the app's voice and chat assistant), Claude Code
+over MCP at `/mcp`, and the `sdlc` CLI (`bun run sdlc health --env staging`). A
+read-only token can look but not ping. How each one connects, and how to rotate
+the tokens: [docs/agents.md](docs/agents.md).
+
 ## Prerequisites
 
 - [Bun](https://bun.sh) for JavaScript and TypeScript

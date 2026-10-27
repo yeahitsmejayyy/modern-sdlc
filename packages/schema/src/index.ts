@@ -1,5 +1,5 @@
 // The API contract, as TypeScript types.
-// These mirror the Pydantic models in apps/server/main.py and auth.py — change both together.
+// These mirror the Pydantic models in apps/server/pings.py and auth.py — change both together.
 // Timestamps arrive as ISO-8601 strings.
 
 export type PingResponse = {
