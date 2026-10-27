@@ -7,9 +7,11 @@ export default defineConfig({
   server: {
     port: 5173,
     // In dev, forward API calls to FastAPI. In production, Caddy does this job.
+    // xfwd adds X-Forwarded-Host (like Caddy does), so the server's same-site
+    // check sees the page's real host rather than localhost:8000.
     proxy: {
-      '/api': 'http://localhost:8000',
-      '/health': 'http://localhost:8000',
+      '/api': { target: 'http://localhost:8000', changeOrigin: true, xfwd: true },
+      '/health': { target: 'http://localhost:8000', changeOrigin: true },
     },
   },
 })

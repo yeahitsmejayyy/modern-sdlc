@@ -82,6 +82,9 @@ These live in the GitHub repo under **Settings → Secrets and variables → Act
 | `POSTGRES_PASSWORD` | Secret | `staging` | A different password for staging's database |
 | `APP_PASSWORD` | Secret | `production`, `staging` | The login password, different per environment. A deploy fails if it's missing. No single quotes |
 | `API_TOKEN` | Secret | `production`, `staging` | Bearer token for agents such as Edith. Empty switches agent access off |
+| `ELEVENLABS_API_KEY` | Secret | `production`, `staging` | ElevenLabs key for the "ask edith" widget. Needs only **ElevenAgents: Write** |
+| `ELEVENLABS_AGENT_ID` | Variable | `production`, `staging` | Edith's agent ID |
+| `AGENT_DAILY_CAP` | Variable (optional) | either | Conversations per UTC day across everyone; default 24 |
 
 The server, user and key are shared because both stacks live on the same box as
 the same user. Set each `POSTGRES_PASSWORD` once and don't change it: Postgres only
@@ -120,6 +123,25 @@ To change a password or token, set the secret again and redeploy that
 environment (`gh workflow run deploy.yml -f environment=… -f tag=<current SHA>`).
 Existing sessions stay valid until they expire; to end them all, run
 `delete from sessions;` in that environment's database.
+
+## Talking to Edith
+
+Logged-in visitors get an **ask edith** button. Opening it asks the server
+(`POST /api/agent/session`) for a short-lived ElevenLabs pass, so the API key never
+reaches the browser. Edith requires authentication in ElevenLabs, so only these
+passes work. Each pass is logged as `agent_session` in the auth log; the limits are
+6 per IP per hour and `AGENT_DAILY_CAP` a day.
+
+Edith's `ping` is a **client tool**: ElevenLabs asks the browser to run it, and the
+widget calls `POST /api/ping` on the site it's open on, with the visitor's login. So
+a ping on production lands in production, and **Recent pings** refreshes the moment
+it does (the list also polls every 5 seconds while the tab is visible). Her
+`list_pings` and `health` are webhook tools that call **staging's** API with the
+staging `API_TOKEN`, whichever site the widget is on. In the ElevenLabs Preview
+there's no widget, so `ping` doesn't work there.
+
+Changes to Edith in the ElevenLabs dashboard take effect only once they're
+**published**; Preview uses drafts.
 
 ## Rolling back
 

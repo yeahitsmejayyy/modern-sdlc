@@ -10,7 +10,8 @@ COPY pyproject.toml uv.lock .python-version ./
 RUN uv sync --frozen --no-dev
 ENV PATH="/app/.venv/bin:$PATH"
 
-COPY main.py db.py auth.py ./
+# Every module the app imports: a file missing here only shows up as a crash on deploy.
+COPY main.py db.py auth.py agent.py ./
 
 # CI passes the commit SHA; /health and /api/ping report it.
 ARG GIT_COMMIT=local

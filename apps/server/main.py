@@ -7,6 +7,7 @@ from fastapi import Depends, FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from agent import router as agent_router
 from auth import require_auth, router as auth_router
 from db import connect, create_tables
 
@@ -48,6 +49,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(auth_router)
+app.include_router(agent_router)
 
 
 @app.post("/api/ping", dependencies=[Depends(require_auth)])

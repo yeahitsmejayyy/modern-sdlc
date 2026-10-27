@@ -11,7 +11,9 @@ import {
   CardHeader,
   CardTitle,
 } from '@app/ui/components/card'
+import { Agent } from './agent.tsx'
 import { environment } from './environment.ts'
+import { PINGS_CHANGED } from './pings.ts'
 import { currentTheme, setTheme, type Theme } from './theme.ts'
 
 const localTime = (iso: string) => new Date(iso).toLocaleString()
@@ -48,6 +50,8 @@ export default function App() {
           {auth === 'in' && <Pinger onUnauthorized={() => setAuth('out')} />}
         </CardContent>
       </Card>
+      {/* Edith, the voice agent: only for people who are logged in. */}
+      {auth === 'in' && <Agent />}
     </main>
   )
 }
@@ -61,8 +65,21 @@ function Pinger({ onUnauthorized }: { onUnauthorized: () => void }) {
     else if (res.ok) setPings(await res.json())
   }
 
+  // Keep the list live: refresh at once when Edith pings, and every few seconds
+  // while the tab is visible, to catch pings from anywhere else.
   useEffect(() => {
     loadPings()
+    const refresh = () => {
+      if (document.visibilityState === 'visible') loadPings()
+    }
+    const timer = setInterval(refresh, 5000)
+    window.addEventListener(PINGS_CHANGED, loadPings)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener(PINGS_CHANGED, loadPings)
+      document.removeEventListener('visibilitychange', refresh)
+    }
   }, [])
 
   return (

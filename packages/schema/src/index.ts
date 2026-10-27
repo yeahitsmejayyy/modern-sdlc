@@ -35,7 +35,12 @@ export type AuthLocked = {
 export type AuthEvent = {
   id: number;
   createdAt: string;
-  event: "login_ok" | "login_failed" | "login_locked" | "logout" | "api_token_rejected";
+  event: "login_ok" | "login_failed" | "login_locked" | "logout" | "api_token_rejected" | "agent_session";
   ip: string | null;
   userAgent: string | null;
 };
+
+// POST /api/agent/session: a short-lived pass to start one conversation with the
+// voice agent. Mirrors apps/server/agent.py.
+export type AgentSessionRequest = { mode: "voice" | "chat" };
+export type AgentSessionPass = { token: string } | { signedUrl: string };
