@@ -20,6 +20,20 @@ const workletPaths = { rawAudioProcessor, audioConcatProcessor }
 
 type Session = Awaited<ReturnType<typeof ElevenLabs.startSession>>
 
+/**
+ * Tools Edith runs in this browser rather than on ElevenLabs' servers. Her ping is
+ * one: it hits the site she's open on, with the visitor's own login, so a ping on
+ * production lands in production. Then the Recent pings list refreshes right away.
+ */
+const clientTools = {
+  ping: async () => {
+    const res = await fetch('/api/ping', { method: 'POST' })
+    if (!res.ok) throw new Error(`ping failed: ${res.status}`)
+    pingsChanged()
+    return await res.text()
+  },
+}
+
 /** Mood cues the voice model may write ([calm], [laughs]): tone on calls, never shown as text. */
 const clean = (text: string) => text.replace(/\[[a-z][a-z ]*\]\s*/gi, '').trim()
 
@@ -111,10 +125,6 @@ export function AgentChat({ onClose }: { onClose: () => void }) {
     },
     onError: () => fail(new Error('failed')),
     onModeChange: ({ mode: m }: { mode: 'speaking' | 'listening' }) => setSpeaking(m === 'speaking'),
-    // Edith's ping tool just wrote a row: refresh the Recent pings list now.
-    onAgentToolResponse: (r: { tool_name?: string; is_error?: boolean }) => {
-      if (r.tool_name === 'ping' && !r.is_error) pingsChanged()
-    },
     onMessage: ({ message, role }: { message: string; role: 'agent' | 'user' }) => {
       const text = clean(message)
       // Typed messages are shown as they're sent; in voice, what was heard comes back here.
@@ -149,6 +159,7 @@ export function AgentChat({ onClose }: { onClose: () => void }) {
         // Start silently: the person has already spoken first.
         overrides: { conversation: { textOnly: true }, agent: { firstMessage: '' } },
         workletPaths,
+        clientTools,
         ...callbacks,
       })
       setStatus('live')
@@ -182,6 +193,7 @@ export function AgentChat({ onClose }: { onClose: () => void }) {
         // After a chat, don't greet again: pick up the thread.
         ...(earlier && { overrides: { agent: { firstMessage: "I'm listening. Go ahead." } } }),
         workletPaths,
+        clientTools,
         ...callbacks,
       })
       setStatus('live')
