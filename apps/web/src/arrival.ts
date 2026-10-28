@@ -4,9 +4,9 @@
 // when the OS asks for reduced motion.
 
 const COLORS = ['#f43f5e', '#f59e0b', '#10b981', '#3b82f6', '#a855f7', '#ec4899']
-const PIECES = 48
+const PIECES = 72
 const GRAVITY = 900 // px/s²
-const DURATION = 1100 // ms
+const DURATION = 1250 // ms
 
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -42,13 +42,13 @@ function confetti(x: number, y: number) {
 
   const flights = Array.from({ length: PIECES }, (_, i) => {
     const piece = document.createElement('i')
-    const size = 5 + Math.random() * 5
+    const size = 6 + Math.random() * 6
     piece.style.cssText = `position:absolute;left:${x}px;top:${y}px;width:${size}px;height:${size * 0.6}px;background:${COLORS[i % COLORS.length]};border-radius:1px`
     layer.append(piece)
 
     // Mostly up and away from the left edge the row came in from.
     const angle = (-100 + Math.random() * 110) * (Math.PI / 180)
-    const speed = 250 + Math.random() * 450 // px/s
+    const speed = 300 + Math.random() * 550 // px/s
     const vx = Math.cos(angle) * speed
     const vy = Math.sin(angle) * speed
     const spin = (Math.random() - 0.5) * 1440
